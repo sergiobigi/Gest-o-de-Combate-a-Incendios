@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<title>Controle de Extintores — V7.6.3</title>
+<meta content="#c62828" name="theme-color"/>
+<style>
+  :root{ --red:#c62828; --bg:#0e141b; --surface:#151b23; --surface2:#1b2230; --text:#e5e7eb; --muted:#9aa4b2; --line:#253246; }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,Segoe UI,Roboto,Ubuntu,Arial;font-size:14px;line-height:1.3}
+  button,input,select,textarea{background:var(--surface2);color:var(--text);border:1px solid #2a3647;border-radius:10px;padding:.45rem .7rem;font-size:.95rem}
+  button{cursor:pointer} button.primary{background:#ffe6e6;color:#7c1515;border-color:transparent}
+  label{display:block;margin:.2rem 0;color:var(--muted)}
+  textarea{min-height:90px}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;position:relative}
+  .raise{position:relative; z-index:10}
+  .hidden{display:none!important}
+  .table{width:100%;border-collapse:collapse;font-size:.92rem}
+  .table th,.table td{padding:.45rem .5rem;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  .table th{background:#121922;color:#cbd5e1;position:sticky;top:0;z-index:1}
+  .pill{display:inline-block;padding:.15rem .5rem;border-radius:999px;border:1px solid #2a3647;color:#cbd5e1;font-size:.78rem}
+  .pill.ok{background:#0f2717;color:#b9f6c1;border-color:#174126}
+  .pill.warn{background:#2b210d;color:#ffd997;border-color:#3b2b12}
+  .pill.bad{background:#2a1114;color:#ffb4b4;border-color:#3c1b1e}
+  .kpi{display:flex;align-items:center;gap:8px;background:#121922;border:1px solid #1e293b;border-radius:12px;padding:10px}
+  .kpi.bad{background:#2a1416;border:1px solid #3c1e20} .kpi.warn{background:#2a210f;border:1px solid #3b2f13} .kpi.ok{background:#132016;border:1px solid #1f3b26}
+  .topbar{position:sticky;top:0;z-index:999;background:linear-gradient(180deg,var(--surface),rgba(21,27,35,.94));border-bottom:1px solid #202a3a;padding:8px 12px;pointer-events:auto}
+  .brand{display:flex;gap:10px;align-items:center}
+  .brand img{width:32px;height:32px;object-fit:contain;background:#fff;border-radius:6px}
+  .navwrap{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:8px}
+  .nav{display:flex;gap:8px;flex-wrap:wrap}
+  .nav button{background:transparent;border:1px solid #ffffff33} .nav button.active{background:#ffffff22}
+  .nav-tools{display:flex;gap:8px;flex-wrap:wrap}
+  .nav-tools button{border:1px dashed #ffffff44;background:#ffffff11}
+  main{padding:12px}
+  .bar{height:10px;background:#243042;border-radius:999px;overflow:hidden} .bar > span{display:block;height:100%;background:linear-gradient(90deg,#ff9a9a,#ffc260)}
+  #errbar{position:fixed;left:0;right:0;bottom:0;background:#3b1d1d;color:#ffd7d7;border-top:1px solid #632d2d;padding:6px 10px;font-family:ui-monospace,Consolas,monospace;font-size:.85rem;display:none;z-index:1000}
+  @media print{
+    body{background:#fff;color:#000}
+    .topbar, .navwrap, .no-print, .kpi, #homeArea, #extArea, #avcbArea, #hidArea, #spdaArea, #filtersArea, .card:not(#reportCard){display:none !important}
+    #reportCard{display:block !important; border:none}
+    #report{background:#fff;color:#000;border:none}
+  }
+</style>
+</head>
+<body>
+<div class="topbar">
+<div class="brand">
+<img alt="Logo" id="logoImg" style="height:auto; max-height:60px; width:auto; max-width:200px; object-fit:contain; background:#fff; border-radius:6px;"/>
+<div>
+<div id="appTitle" style="font-weight:700">Controle de Extintores</div>
+<div id="appCompany" style="color:#cbd5e1">Empresa</div>
+</div>
+<div class="row" style="margin-left:auto">Hoje: <span id="today"></span></div>
+</div>
+<div class="navwrap">
+<div class="nav" id="topNav">
+<button data-target="homeArea">🏠 Home</button>
+<button data-target="extArea">🧯 Extintores</button>
+<button data-target="avcbArea">📜 AVCB</button>
+<button data-target="hidArea">💧 Hidrantes/Bombas</button>
+<button data-target="spdaArea">⚡ SPDA</button>
+<button data-target="reportsArea">📄 Relatórios</button>
+<button data-target="backupArea">💾 Backups</button>
+<button data-target="configArea">⚙️ Configurações</button>
+<button data-target="helpArea">❓ Ajuda</button>
+</div>
+<div class="nav-tools">
+<button onclick="criarProjeto()">➕ Criar Projeto</button>
+<button onclick="criarEmpreendimento()">🏢 Criar Empreendimento</button>
+</div>
+</div>
+</div>
+<main>
+<section id="homeArea"><div class="grid"><div class="card"><h3 style="margin-top:0">Visão geral</h3><div class="grid"><div class="kpi"><div>Extintores</div><div class="n" id="kpiTotal">0</div></div><div class="kpi bad"><div>Vencidos</div><div class="n" id="kpiVenc">0</div></div><div class="kpi warn"><div>≤60 dias</div><div class="n" id="kpiA60">0</div></div><div class="kpi ok"><div>OK</div><div class="n" id="kpiOk">0</div></div></div></div><div class="card"><h3 style="margin-top:0">Vencimentos em 90 dias — por Projeto</h3><div class="grid" id="byProj"></div></div><div class="card"><h3 style="margin-top:0">Lista rápida (próx. 90 dias)</h3><div style="max-height:260px;overflow:auto"><table class="table"><thead><tr><th>Projeto</th><th>Local</th><th>Tipo</th><th>Vence</th><th>Status</th></tr></thead><tbody id="tbDash"></tbody></table></div></div></div>
+<div class="grid" style="margin-top:20px">
+<div class="card">
+<h3 style="margin-top:0">AVCB — Vencimentos</h3>
+<div class="grid">
+<div class="kpi bad"><div>Vencidos</div><div class="n" id="kpiAvcbVenc">0</div></div>
+<div class="kpi warn"><div>≤60 dias</div><div class="n" id="kpiAvcb60">0</div></div>
+<div class="kpi ok"><div>OK</div><div class="n" id="kpiAvcbOk">0</div></div>
+</div>
+</div>
+<div class="card">
+<h3 style="margin-top:0">Hidrantes — Testes</h3>
+<div class="grid">
+<div class="kpi bad"><div>Vencidos</div><div class="n" id="kpiHidVenc">0</div></div>
+<div class="kpi warn"><div>≤60 dias</div><div class="n" id="kpiHid60">0</div></div>
+<div class="kpi ok"><div>OK</div><div class="n" id="kpiHidOk">0</div></div>
+</div>
+</div>
+<div class="card">
+<h3 style="margin-top:0">SPDA — Inspeções</h3>
+<div class="grid">
+<div class="kpi bad"><div>Vencidos</div><div class="n" id="kpiSpdaVenc">0</div></div>
+<div class="kpi warn"><div>≤60 dias</div><div class="n" id="kpiSpda60">0</div></div>
+<div class="kpi ok"><div>OK</div><div class="n" id="kpiSpdaOk">0</div></div>
+</div>
+</div>
+</div>
+</section>
+<!-- EXTINTORES -->
+<section class="hidden" id="extArea">
+<div class="card">
+<div class="row" style="justify-content:space-between">
+<h3 style="margin-top:0">Cadastro de Extintores</h3>
+<div class="row">
+<input id="busca" oninput="renderTable()" placeholder="Buscar: projeto, local, série, tipo" style="min-width:220px"/>
+<label class="row" style="gap:6px"><input id="chkOver" onchange="renderTable()" type="checkbox"/> Só vencidos</label>
+</div>
+</div>
+<div class="grid">
+<input id="fId" type="hidden"/>
+<div><label>Projeto</label><select id="fProjSel"></select></div>
+<div><label>Empreendimento</label><select id="fEmpSel"></select></div>
+<div><label>Local</label><input id="fLocal"/></div>
+<div><label>Tipo</label>
+<select id="fTipo">
+<option value="">— selecione —</option>
+<option>Pó Químico Seco (PQS)</option>
+<option>CO₂</option>
+<option>Água Pressurizada</option>
+<option>Espuma Mecânica</option>
+<option>Classe D</option>
+<option>Kitchen (K)</option>
+</select>
+</div>
+<div><label>Capacidade</label><input id="fCap" placeholder="ex.: 4 kg ou 10 L"/></div>
+<div><label>Nº de Série</label><input id="fSerie"/></div>
+<div><label>Última Inspeção</label><input id="fUltInsp" type="date"/></div>
+<div><label>Último Teste Hidrostático</label><input id="fUltHidro" type="date"/></div>
+<div class="row" style="align-items:end"><button class="primary" onclick="salvar()">Salvar</button><button onclick="limpar()">Limpar</button></div>
+</div>
+</div>
+<div class="card">
+<div class="row" style="justify-content:space-between">
+<div class="pill">Ao excluir, é feito backup JSON dos registros</div>
+<button onclick="excluirSelecionados()">Excluir Selecionados</button>
+</div>
+<div style="overflow:auto;max-height:420px">
+<table class="table">
+<thead><tr>
+<th>Sel.</th><th>Projeto</th><th>Empreend.</th><th>Local</th><th>Tipo</th><th>Cap.</th><th>Série</th>
+<th>Últ. Insp.</th><th>Próx. Insp.</th><th>Δ Insp.</th>
+<th>Últ. Hidro</th><th>Próx. Hidro</th><th>Δ Hidro</th>
+<th>Ações</th>
+</tr></thead>
+<tbody id="tbExt"></tbody>
+</table>
+</div>
+</div>
+</section>
+<!-- AVCB -->
+<section class="hidden" id="avcbArea">
+<div class="card">
+<h3 style="margin-top:0">Controle de AVCB</h3>
+<div class="grid">
+<div><label>Projeto</label><select id="avProjSel"></select></div>
+<div><label>Empreendimento</label><select id="avEmpSel"></select></div>
+<div><label>Nº AVCB</label><input id="avNum"/></div>
+<div><label>Emissão</label><input id="avEmi" type="date"/></div>
+<div><label>Validade</label><input id="avVal" type="date"/></div>
+<div><label>Responsável</label><input id="avResp"/></div>
+<div><label>Anexo (PDF/Imagem)</label><input accept=".pdf,image/*" id="avAnexo" type="file"/></div>
+<div><label>MD (Memorial Descritivo)</label><textarea id="avMD" placeholder="Texto do memorial para este AVCB"></textarea></div>
+<div>
+<label>Anexo Projeto (PDF/Imagem)</label>
+<input accept=".pdf,image/*" id="avProjFile" type="file"/>
+<div class="row" style="margin-top:4px">
+<button onclick="usarDoProjeto()">Usar do Projeto</button>
+<span class="pill hidden" id="avProjFromProj"></span>
+<input id="avProjFileData" type="hidden"/>
+</div>
+</div>
+<div class="row raise" style="align-items:end">
+<button class="primary" onclick="avSalvar()">Salvar / Adicionar AVCB</button>
+<button onclick="avLimpar()">Limpar</button>
+</div>
+</div>
+</div>
+<div class="card">
+<div style="overflow:auto;max-height:420px">
+<table class="table">
+<thead><tr><th>Projeto</th><th>Empreend.</th><th>Nº</th><th>Emissão</th><th>Validade</th><th>Δ</th><th>Responsável</th><th>Anexos</th><th>Ações</th></tr></thead>
+<tbody id="tbAvcb"></tbody>
+</table>
+</div>
+</div>
+</section>
+<!-- HIDRANTES/BOMBAS -->
+<section class="hidden" id="hidArea">
+<div class="card">
+<h3 style="margin-top:0">Teste Anual — Hidrantes/Bombas</h3>
+<div class="grid">
+<div><label>Projeto</label><select id="hProjSel"></select></div>
+<div><label>Empreendimento</label><select id="hEmpSel"></select></div>
+<div><label>Data do Teste</label><input id="hData" type="date"/></div>
+<div><label>Pressão (kgf/cm²)</label><input id="hPressao" step="0.01" type="number"/></div>
+<div><label>Vazão (m³/h)</label><input id="hVazao" step="0.01" type="number"/></div>
+<div><label>Resultado</label><select id="hStatus"><option value="">— selecione —</option><option>Conforme</option><option>Não conforme</option></select></div>
+<div><label>Responsável</label><input id="hResp"/></div>
+<div><label>Anexo Laudo (PDF/Imagem)</label><input accept=".pdf,image/*" id="hAnexo" type="file"/></div>
+<div style="grid-column:1/-1"><label>Observações</label><textarea id="hObs"></textarea></div>
+<div class="row"><button class="primary" onclick="hSalvar()">Salvar</button><button onclick="hLimpar()">Limpar</button></div>
+</div>
+</div>
+<div class="card">
+<div style="overflow:auto;max-height:420px">
+<table class="table">
+<thead><tr><th>Projeto</th><th>Empreend.</th><th>Data</th><th>Próx. Teste</th><th>Δ</th><th>Pressão</th><th>Vazão</th><th>Resultado</th><th>Resp.</th><th>Anexo</th><th>Ações</th></tr></thead>
+<tbody id="tbHid"></tbody>
+</table>
+</div>
+</div>
+</section>
+<!-- SPDA -->
+<section class="hidden" id="spdaArea">
+<div class="card">
+<h3 style="margin-top:0">SPDA — Inspeção Anual</h3>
+<div class="grid">
+<div><label>Projeto</label><select id="sProjSel"></select></div>
+<div><label>Empreendimento</label><select id="sEmpSel"></select></div>
+<div><label>Data da Inspeção</label><input id="sData" type="date"/></div>
+<div><label>Validade</label><input id="sValidade" placeholder="(+1 ano automático)" type="date"/></div>
+<div><label>Responsável</label><input id="sResp"/></div>
+<div><label>Laudo (PDF/Imagem)</label><input accept=".pdf,image/*" id="sAnexo" type="file"/></div>
+<div style="grid-column:1/-1"><label>Observações</label><textarea id="sObs"></textarea></div>
+<div class="row"><button class="primary" onclick="sSalvar()">Salvar</button><button onclick="sLimpar()">Limpar</button></div>
+</div>
+</div>
+<div class="card">
+<div style="overflow:auto;max-height:420px">
+<table class="table">
+<thead><tr><th>Projeto</th><th>Empreend.</th><th>Inspeção</th><th>Validade</th><th>Δ</th><th>Resp.</th><th>Laudo</th><th>Ações</th></tr></thead>
+<tbody id="tbSpda"></tbody>
+</table>
+</div>
+</div>
+</section>
+<!-- RELATÓRIOS -->
+<section class="hidden" id="reportsArea">
+<div class="card" id="filtersArea">
+<h3 style="margin-top:0">Relatórios</h3>
+<div class="row">
+<button class="primary" onclick="selTipoRel('ext')">Extintores</button>
+<button onclick="selTipoRel('avcb')">AVCB</button>
+<button onclick="selTipoRel('hid')">Hidrantes/Bombas</button>
+<button onclick="selTipoRel('spda')">SPDA</button>
+</div>
+<div id="filtrosExt">
+<div class="grid">
+<div><label>Projeto</label><select id="rProjSel"><option value="">(todos)</option></select></div>
+<div><label>Tipo</label><select id="rTipoSel"><option value="">(todos)</option></select></div>
+<div><label>Status</label><select id="rStatus"><option value="">Todos</option><option value="venc">Vencido</option><option value="a60">≤60d</option><option value="ok">OK</option><option value="sem">Sem data</option></select></div>
+<div><label>Vence em ≤ (dias)</label><input id="rDias" min="0" type="number"/></div>
+<div><label>Intervalo de vencimento</label><div class="row"><input id="rIni" type="date"/><input id="rFim" type="date"/></div></div>
+</div>
+<div class="row" style="margin-top:8px"><button class="primary" onclick="gerarRelExt()">Gerar Relatório de Extintores</button><button onclick="imprimirRel()">Imprimir</button></div>
+</div>
+<div class="hidden" id="filtrosAvcb">
+<div class="grid">
+<div><label>Projeto</label><select id="rProjAvcb"><option value="">(todos)</option></select></div>
+<div><label>Válidos até ≤ (dias)</label><input id="rDiasAv" min="0" type="number"/></div>
+</div>
+<div class="row" style="margin-top:8px"><button class="primary" onclick="gerarRelAvcb()">Gerar Relatório de AVCB</button><button onclick="imprimirRel()">Imprimir</button></div>
+</div>
+<div class="hidden" id="filtrosHid">
+<div class="grid">
+<div><label>Projeto</label><select id="rProjHid"><option value="">(todos)</option></select></div>
+<div><label>Resultado</label><select id="rResHid"><option value="">Todos</option><option>Conforme</option><option>Não conforme</option></select></div>
+<div><label>Data do teste (intervalo)</label><div class="row"><input id="rHidIni" type="date"/><input id="rHidFim" type="date"/></div></div>
+</div>
+<div class="row" style="margin-top:8px"><button class="primary" onclick="gerarRelHid()">Gerar Relatório de Hidrantes/Bombas</button><button onclick="imprimirRel()">Imprimir</button></div>
+</div>
+<div class="hidden" id="filtrosSpda">
+<div class="grid">
+<div><label>Projeto</label><select id="rProjSpda"><option value="">(todos)</option></select></div>
+<div><label>Válidos até ≤ (dias)</label><input id="rDiasSpda" min="0" type="number"/></div>
+</div>
+<div class="row" style="margin-top:8px"><button class="primary" onclick="gerarRelSpda()">Gerar Relatório de SPDA</button><button onclick="imprimirRel()">Imprimir</button></div>
+</div>
+</div>
+<div class="card" id="reportCard">
+<div id="report" style="background:#fff;color:#000"></div>
+</div>
+</section>
+<!-- BACKUP -->
+<section class="hidden" id="backupArea">
+<div class="card">
+<h3 style="margin-top:0">Backups</h3>
+<div class="row"><button onclick="downloadDB()">Exportar (download .json)</button></div>
+<div class="row" style="margin-top:6px"><input accept=".json" id="inFiles" multiple="" type="file"/><button class="primary" onclick="importarSelecionados()">Importar selecionados</button></div>
+<div id="log" style="margin-top:8px;max-height:180px;overflow:auto;border:1px solid #223042;border-radius:10px;padding:8px;font-family:ui-monospace,Consolas,monospace;font-size:.9rem"></div>
+</div>
+<div class="backup-config" style="margin-top: 20px;">
+<h3>Configurações de Backup</h3>
+<label>Pasta de destino:</label>
+<input directory="" id="backupFolderPicker" type="file" webkitdirectory=""/>
+<br/><br/>
+<input id="enableAutoBackup" type="checkbox"/>
+<label for="enableAutoBackup">Ativar backup automático</label>
+<br/>
+<label for="backupInterval">Intervalo (minutos):</label>
+<input id="backupInterval" min="1" type="number" value="10"/>
+</div>
+</section>
+<!-- CONFIG -->
+<section class="hidden" id="configArea">
+<div class="card">
+<h3 style="margin-top:0">Configurações</h3>
+<div class="grid">
+<div><label>Título</label><input id="cfgTitulo"/></div>
+<div><label>Empresa</label><input id="cfgEmpresa"/></div>
+<div><label>Logo (persistente)</label><input accept="image/*" id="cfgLogo" onchange="alterarLogo()" type="file"/></div>
+</div>
+<div class="row" style="margin-top:8px"><button class="primary" onclick="salvarCfg()">Salvar e aplicar</button><button onclick="restaurarCfg()">Restaurar padrão</button></div>
+</div>
+</section>
+<!-- AJUDA -->
+<section class="hidden" id="helpArea">
+<div class="card">
+<h3 style="margin-top:0">Ajuda &amp; Boas Práticas</h3>
+<ul>
+<li>Abas: <b>Extintores</b>, <b>AVCB</b>, <b>Hidrantes/Bombas</b> e <b>SPDA</b>, com relatórios separados.</li>
+<li>Empreendimento é filtrado pelo Projeto em todos os módulos.</li>
+<li>Backups incluem todos os módulos; importação mescla com os dados existentes.</li>
+</ul>
+</div>
+<div class="card">
+<h3 style="margin-top:0">Ajuda por Campo</h3>
+<ul style="line-height:1.6">
+<li><strong>Projeto:</strong> Nome do projeto ao qual os equipamentos pertencem.</li>
+<li><strong>Empreendimento:</strong> Local físico dentro do projeto (ex: galpão, prédio).</li>
+<li><strong>Local:</strong> Descrição do local exato do extintor (ex: Sala 3, Corredor A).</li>
+<li><strong>Tipo:</strong> Tipo do extintor (ex: PQS, CO₂, Água, Espuma).</li>
+<li><strong>Capacidade:</strong> Capacidade do extintor (ex: 4kg, 10L).</li>
+<li><strong>Nº de Série:</strong> Número de identificação do equipamento.</li>
+<li><strong>Última Inspeção:</strong> Data da última inspeção de manutenção.</li>
+<li><strong>Último Teste Hidrostático:</strong> Data do último teste hidrostático obrigatório.</li>
+<li><strong>Status:</strong> Informa se o equipamento está em dia, vencido ou prestes a vencer.</li>
+<li><strong>Relatórios:</strong> Permite gerar relatórios por projeto, tipo, status e datas.</li>
+<li><strong>Backups:</strong> Permite exportar ou importar os dados em formato JSON.</li>
+<li><strong>Configurações:</strong> Permite personalizar o nome da empresa, título e logo do sistema.</li>
+</ul>
+</div>
+</section>
+</main>
+<div id="errbar"></div>
+<script>
+// ======== Erros globais ========
+window.onerror = function(msg, url, line, col, err){
+  var eb = document.getElementById('errbar');
+  if(eb){ eb.style.display = 'block'; eb.textContent = 'ERRO: ' + msg + ' @linha ' + line + (col?':'+col:'') + ' | ' + url; }
+  return false;
+};
+
+// ======== Util ========
+function pad2(n){ return (''+n).length==1?('0'+n):(''+n); }
+function todayISO(){ var d=new Date(); return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
+function parseISO(s){ if(!s) return null; var a=s.split('-'); return new Date(parseInt(a[0],10),(parseInt(a[1]||'1',10)-1),parseInt(a[2]||'1',10)); }
+function ymd(d){ return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
+function addYears(s,y){ if(!s) return ''; var d=parseISO(s); d.setFullYear(d.getFullYear()+y); return ymd(d); }
+function diffDays(a,b){ if(!a||!b) return null; var da=(a instanceof Date)?a:parseISO(a); var db=(b instanceof Date)?b:parseISO(b); return Math.floor((da-db)/86400000); }
+function fmtBR(s){ if(!s) return ''; var d=parseISO(s); return pad2(d.getDate())+'/'+pad2(d.getMonth()+1)+'/'+d.getFullYear(); }
+function log(msg){ var el=document.getElementById('log'); if(!el) return; var ts=new Date().toLocaleTimeString(); el.innerHTML = '<div>['+ts+'] '+msg+'</div>' + el.innerHTML; }
+function genId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+
+// ======== Storage ========
+function lsGet(key,def){ try{ var v=localStorage.getItem(key); return v?JSON.parse(v):def; }catch(e){ return def; } }
+function lsSet(key,val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){} }
+
+// ======== Config ========
+function loadCfg(){
+  var cfg = lsGet('cfg', null);
+  if(!cfg){ cfg = {titulo:'Controle de Extintores', empresa:'Empresa', logoDataURL:''}; lsSet('cfg', cfg); }
+  var t=document.getElementById('appTitle'); if(t) t.textContent = cfg.titulo;
+  var e=document.getElementById('appCompany'); if(e) e.textContent = cfg.empresa;
+  var l=document.getElementById('logoImg'); if(l) l.src = cfg.logoDataURL || '';
+  var t2=document.getElementById('cfgTitulo'); if(t2) t2.value = cfg.titulo;
+  var e2=document.getElementById('cfgEmpresa'); if(e2) e2.value = cfg.empresa;
+}
+function salvarCfg(){
+  var cfg = lsGet('cfg', {titulo:'Controle de Extintores', empresa:'Empresa', logoDataURL:''});
+  var t=document.getElementById('cfgTitulo'); var e=document.getElementById('cfgEmpresa');
+  if(t) cfg.titulo = t.value || cfg.titulo;
+  if(e) cfg.empresa = e.value || cfg.empresa;
+  lsSet('cfg', cfg); loadCfg();
+}
+function restaurarCfg(){ lsSet('cfg', {titulo:'Controle de Extintores', empresa:'Empresa', logoDataURL:''}); loadCfg(); }
+function alterarLogo(){
+  var inp=document.getElementById('cfgLogo'); if(!inp || !inp.files || !inp.files[0]) return;
+  var fr=new FileReader(); fr.onload=function(){ var cfg=lsGet('cfg', {}); cfg.logoDataURL=fr.result; lsSet('cfg', cfg); loadCfg(); }; fr.readAsDataURL(inp.files[0]);
+}
+
+// ======== Dados (IDs infinitos) ========
+function migrateIds(){
+  function ensure(listName){
+    var arr = lsGet(listName, []), changed=false;
+    for(var i=0;i<arr.length;i++){ if(!arr[i].id){ arr[i].id = genId(); changed=true; } }
+    if(changed) lsSet(listName, arr);
+  }
+  ensure('items'); ensure('avcb'); ensure('hid'); ensure('spda');
+}
+
+// ======== Extintores CRUD ========
+function itemsAll(){ return lsGet('items', []); }
+function itemsSet(arr){ lsSet('items', arr||[]); }
+function upsertItem(rec){
+  var arr=itemsAll(), i, idx=-1;
+  if(rec.id){ for(i=0;i<arr.length;i++){ if(arr[i].id===rec.id){ idx=i; break; } } }
+  if(idx>=0){ arr[idx]=rec; } else { rec.id = rec.id || genId(); arr.push(rec); }
+  itemsSet(arr);
+}
+function delItemById(id){
+  var arr=itemsAll(), out=[], i; for(i=0;i<arr.length;i++){ if(arr[i].id!==id && arr[i].serie!==id) out.push(arr[i]); } itemsSet(out);
+}
+
+// ======== Projetos & Empreendimentos ========
+function projAll(){ return lsGet('projs', {}); }
+function projSet(map){ lsSet('projs', map||{}); }
+function empsAll(){ return lsGet('emps', {}); }
+function empsSet(map){ lsSet('emps', map||{}); }
+
+function criarProjeto(){
+  var nome = prompt('Nome do projeto:');
+  if(!nome){ alert('Informe um nome.'); return; }
+  var map=projAll();
+  if(map[nome]){ alert('Já existe um projeto com esse nome.'); return; }
+  map[nome]={memorial:'', projetoFile:{name:'', data:''}};
+  projSet(map);
+  
+  // --- AVCB ---
+  var av = avAll(), avV=0, av60=0;
+  for(i=0;i<av.length;i++){
+    var d=av[i].validade?diffDays(av[i].validade, todayISO()):null;
+    if(d!==null){ if(d<0) avV++; else if(d<=60) av60++; }
+  }
+  var avOK=Math.max(0, av.length-avV-av60);
+  var a1=document.getElementById('kpiAvcbVenc'); if(a1) a1.textContent=avV;
+  var a2=document.getElementById('kpiAvcb60'); if(a2) a2.textContent=av60;
+  var a3=document.getElementById('kpiAvcbOk'); if(a3) a3.textContent=avOK;
+
+  // --- Hidrantes ---
+  var hd = hidAll(), hV=0, h60=0;
+  for(i=0;i<hd.length;i++){
+    var prox=hd[i].data?addYears(hd[i].data,1):'';
+    var d=prox?diffDays(prox,todayISO()):null;
+    if(d!==null){ if(d<0) hV++; else if(d<=60) h60++; }
+  }
+  var hOK=Math.max(0, hd.length-hV-h60);
+  var h1=document.getElementById('kpiHidVenc'); if(h1) h1.textContent=hV;
+  var h2=document.getElementById('kpiHid60'); if(h2) h2.textContent=h60;
+  var h3=document.getElementById('kpiHidOk'); if(h3) h3.textContent=hOK;
+
+  // --- SPDA ---
+  var sp = spAll(), sV=0, s60=0;
+  for(i=0;i<sp.length;i++){
+    var d=sp[i].validade?diffDays(sp[i].validade, todayISO()):null;
+    if(d!==null){ if(d<0) sV++; else if(d<=60) s60++; }
+  }
+  var sOK=Math.max(0, sp.length-sV-s60);
+  var s1=document.getElementById('kpiSpdaVenc'); if(s1) s1.textContent=sV;
+  var s2=document.getElementById('kpiSpda60'); if(s2) s2.textContent=s60;
+  var s3=document.getElementById('kpiSpdaOk'); if(s3) s3.textContent=sOK;
+carregarCombos();
+  alert('Projeto criado: '+nome);
+}
+function criarEmpreendimento(){
+  var nome = prompt('Nome do empreendimento:');
+  if(!nome){ alert('Informe um nome.'); return; }
+  var projs=projAll(); var nomes=[]; for(var k in projs){ if(projs.hasOwnProperty(k)) nomes.push(k); }
+  if(nomes.length===0){ alert('Crie um projeto antes de cadastrar um empreendimento.'); return; }
+  var lista='\n- '+nomes.join('\n- ');
+  var proj = prompt('Projeto ao qual pertence (digite exatamente como na lista):'+lista, nomes[0]||'');
+  if(!proj || !projs[proj]){ alert('Projeto não encontrado.'); return; }
+  var desc = prompt('Descrição/resumo (opcional):','');
+  var map=empsAll();
+  map[nome]={descricao:desc||'', projeto:proj};
+  empsSet(map);
+  carregarCombos();
+  try{
+    var pairs=[['fProjSel','fEmpSel'],['avProjSel','avEmpSel'],['hProjSel','hEmpSel'],['sProjSel','sEmpSel']];
+    for(var i=0;i<pairs.length;i++){ var p=pairs[i]; var projSel=document.getElementById(p[0]); if(projSel && projSel.value===proj){ updateEmpSelForProject(p[0],p[1]); var empSel=document.getElementById(p[1]); if(empSel){ empSel.value=nome; } } }
+  }catch(e){}
+  alert('Empreendimento criado: '+nome+' (Projeto: '+proj+')');
+}
+
+// ======== AVCB ========
+function avAll(){ return lsGet('avcb', []); }
+function avSet(arr){ lsSet('avcb', arr||[]); }
+function usarDoProjeto(){
+  var s = document.getElementById('avProjSel'); var projeto = s ? (s.value||'').trim() : '';
+  if(!projeto){ alert('Selecione um projeto primeiro.'); return; }
+  var map=projAll(); var ent=map[projeto];
+  if(!ent){ alert('Projeto não encontrado.'); return; }
+  var md=document.getElementById('avMD'); if(md && ent.memorial){ md.value = (md.value?md.value+'\n\n':'') + ent.memorial; }
+  var txt=document.getElementById('avProjFromProj'); var hid=document.getElementById('avProjFileData');
+  if(ent.projetoFile && ent.projetoFile.data){ if(hid) hid.value = JSON.stringify(ent.projetoFile); if(txt){ txt.textContent='Usando anexo do projeto: '+(ent.projetoFile.name||'arquivo'); txt.classList.remove('hidden'); } }
+  else { if(txt){ txt.textContent='Projeto não possui anexo.'; txt.classList.remove('hidden'); } }
+}
+function avSalvar(){
+  var rec={
+    id: null,
+    projeto:(document.getElementById('avProjSel')||{}).value || '',
+    empreendimento:(document.getElementById('avEmpSel')||{}).value || '',
+    numero:(document.getElementById('avNum')||{}).value || '',
+    emissao:(document.getElementById('avEmi')||{}).value || '',
+    validade:(document.getElementById('avVal')||{}).value || '',
+    responsavel:(document.getElementById('avResp')||{}).value || '',
+    md:(document.getElementById('avMD')||{}).value || '',
+    anexo:'',
+    projFile:null
+  };
+  if(!rec.projeto || !rec.numero){ alert('Informe Projeto e Nº do AVCB.'); return; }
+  var hidEl=document.getElementById('avProjFileData'); var hid = hidEl?hidEl.value:'';
+  if(hid){ try{ rec.projFile = JSON.parse(hid); }catch(e){ rec.projFile=null; } }
+  var fProj=document.getElementById('avProjFile');
+  var fAnx=document.getElementById('avAnexo');
+  function finalize(){ _avSalvarFinal(rec); }
+  function afterProj(){
+    if(fAnx && fAnx.files && fAnx.files[0]){
+      var fra=new FileReader(); fra.onload=function(){ rec.anexo=fra.result; finalize(); }; fra.readAsDataURL(fAnx.files[0]);
+    } else { finalize(); }
+  }
+  if(fProj && fProj.files && fProj.files[0]){
+    var frp=new FileReader(); frp.onload=function(){ rec.projFile={name:fProj.files[0].name, data:frp.result}; afterProj(); }; frp.readAsDataURL(fProj.files[0]);
+  } else { afterProj(); }
+}
+function _avSalvarFinal(rec){
+  var arr=avAll(); rec.id = genId(); arr.push(rec); avSet(arr);
+  avLimpar(); renderAvcb(); carregarCombos();
+}
+function avLimpar(){
+  var ids=['avProjSel','avEmpSel','avNum','avEmi','avVal','avResp','avAnexo','avMD','avProjFile','avProjFileData'];
+  for(var i=0;i<ids.length;i++){ var el=document.getElementById(ids[i]); if(!el) continue; if(el.tagName==='INPUT' || el.tagName==='SELECT') el.value=''; else if(el.tagName==='TEXTAREA') el.value=''; }
+  var txt=document.getElementById('avProjFromProj'); if(txt){ txt.textContent=''; txt.classList.add('hidden'); }
+}
+function avExcluir(id){
+  if(!confirm('Excluir AVCB?')) return;
+  var arr=avAll(), out=[], i; for(i=0;i<arr.length;i++){ if(arr[i].id!==id) out.push(arr[i]); }
+  avSet(out); renderAvcb(); carregarCombos();
+}
+function linkDownload(label, dataUrl, filename){
+  if(!dataUrl) return '';
+  var down = '<a href="'+dataUrl+'" download="'+(filename || 'arquivo')+'">baixar</a>';
+  return label+': '+down;
+}
+function renderAvcb(){
+  var arr=avAll(), i, rows='';
+  for(i=0;i<arr.length;i++){
+    var it=arr[i];
+    var dias = it.validade?diffDays(it.validade, todayISO()):null;
+    var st = (dias===null)?'<span class="pill">—</span>':(dias<0?'<span class="pill bad">Vencido '+Math.abs(dias)+'d</span>':(dias<=60?'<span class="pill warn">≤'+dias+'d</span>':'<span class="pill ok">'+dias+'d</span>'));
+    var anexos=[];
+    if(it.anexo){ anexos.push(linkDownload('AVCB', it.anexo, 'avcb_'+(it.numero||''))); }
+    if(it.md){ var mdURL='data:text/plain;charset=utf-8,'+encodeURIComponent(it.md); anexos.push(linkDownload('MD', mdURL, 'md_'+(it.numero||'')+'.txt')); }
+    if(it.projFile && it.projFile.data){ anexos.push(linkDownload('Projeto', it.projFile.data, it.projFile.name||('projeto_'+(it.numero||'')))); }
+    var anexoCell = anexos.length?anexos.join('<br>'):'—';
+    rows+='<tr><td>'+ (it.projeto||'') +'</td><td>'+(it.empreendimento||'')+'</td><td>'+ (it.numero||'') +'</td><td>'+ fmtBR(it.emissao) +'</td><td>'+ fmtBR(it.validade) +'</td><td>'+ st +'</td><td>'+ (it.responsavel||'') +'</td><td>'+ anexoCell +'</td><td><button onclick="avExcluir(\''+(it.id||'')+'\')">Excluir</button></td></tr>';
+  }
+  var tb=document.getElementById('tbAvcb'); if(tb) tb.innerHTML=rows;
+}
+
+// ======== Hidrantes/Bombas ========
+function hidAll(){ return lsGet('hid', []); }
+function hidSet(arr){ lsSet('hid', arr||[]); }
+function hSalvar(){
+  var rec={
+    id:null,
+    projeto:(document.getElementById('hProjSel')||{}).value || '',
+    empreendimento:(document.getElementById('hEmpSel')||{}).value || '',
+    data:(document.getElementById('hData')||{}).value || '',
+    pressao:parseFloat((document.getElementById('hPressao')||{}).value||'')||null,
+    vazao:parseFloat((document.getElementById('hVazao')||{}).value||'')||null,
+    status:(document.getElementById('hStatus')||{}).value || '',
+    responsavel:(document.getElementById('hResp')||{}).value || '',
+    obs:(document.getElementById('hObs')||{}).value || '',
+    anexo:''
+  };
+  if(!rec.projeto || !rec.data){ alert('Informe Projeto e Data do teste.'); return; }
+  var f=document.getElementById('hAnexo');
+  if(f && f.files && f.files[0]){
+    var fr=new FileReader(); fr.onload=function(){ rec.anexo=fr.result; _hSalvar(rec); }; fr.readAsDataURL(f.files[0]);
+  } else { _hSalvar(rec); }
+}
+function _hSalvar(rec){ var arr=hidAll(); rec.id=genId(); arr.push(rec); hidSet(arr); hLimpar(); renderHid(); carregarCombos(); }
+function hLimpar(){ var ids=['hProjSel','hEmpSel','hData','hPressao','hVazao','hStatus','hResp','hAnexo','hObs']; for(var i=0;i<ids.length;i++){ var el=document.getElementById(ids[i]); if(!el) continue; if(el.tagName==='INPUT' || el.tagName==='SELECT') el.value=''; else if(el.tagName==='TEXTAREA') el.value=''; } }
+function hExcluir(id){ if(!confirm('Excluir registro de Hidrantes?')) return; var arr=hidAll(), out=[]; for(var i=0;i<arr.length;i++){ if(arr[i].id!==id) out.push(arr[i]); } hidSet(out); renderHid(); }
+function renderHid(){
+  var arr=hidAll(), rows='';
+  for(var i=0;i<arr.length;i++){
+    var it=arr[i];
+    var prox=it.data?addYears(it.data,1):'';
+    var d=prox?diffDays(prox,todayISO()):null;
+    var st=(d===null)?'<span class="pill">—</span>':(d<0?'<span class="pill bad">Vencido '+Math.abs(d)+'d</span>':(d<=60?'<span class="pill warn">≤'+d+'d</span>':'<span class="pill ok">'+d+'d</span>'));
+    var an=it.anexo?linkDownload('laudo', it.anexo, 'hid_'+(it.data||'')):'';
+    rows+='<tr><td>'+(it.projeto||'')+'</td><td>'+(it.empreendimento||'')+'</td><td>'+fmtBR(it.data)+'</td><td>'+fmtBR(prox)+'</td><td>'+st+'</td><td>'+(it.pressao==null?'':it.pressao)+'</td><td>'+(it.vazao==null?'':it.vazao)+'</td><td>'+(it.status||'')+'</td><td>'+(it.responsavel||'')+'</td><td>'+(an||'—')+'</td><td><button onclick="hExcluir(\''+(it.id||'')+'\')">Excluir</button></td></tr>';
+  }
+  var tb=document.getElementById('tbHid'); if(tb) tb.innerHTML=rows;
+}
+
+// ======== SPDA ========
+function spAll(){ return lsGet('spda', []); }
+function spSet(arr){ lsSet('spda', arr||[]); }
+function sSalvar(){
+  var data = (document.getElementById('sData')||{}).value || '';
+  var val = (document.getElementById('sValidade')||{}).value || (data?addYears(data,1):'');
+  var rec={
+    id:null,
+    projeto:(document.getElementById('sProjSel')||{}).value || '',
+    empreendimento:(document.getElementById('sEmpSel')||{}).value || '',
+    data:data,
+    validade:val,
+    responsavel:(document.getElementById('sResp')||{}).value || '',
+    obs:(document.getElementById('sObs')||{}).value || '',
+    anexo:''
+  };
+  if(!rec.projeto || !rec.data){ alert('Informe Projeto e Data da inspeção.'); return; }
+  var f=document.getElementById('sAnexo');
+  if(f && f.files && f.files[0]){
+    var fr=new FileReader(); fr.onload=function(){ rec.anexo=fr.result; _sSalvar(rec); }; fr.readAsDataURL(f.files[0]);
+  } else { _sSalvar(rec); }
+}
+function _sSalvar(rec){ var arr=spAll(); rec.id=genId(); arr.push(rec); spSet(arr); sLimpar(); renderSpda(); carregarCombos(); }
+function sLimpar(){ var ids=['sProjSel','sEmpSel','sData','sValidade','sResp','sAnexo','sObs']; for(var i=0;i<ids.length;i++){ var el=document.getElementById(ids[i]); if(!el) continue; if(el.tagName==='INPUT' || el.tagName==='SELECT') el.value=''; else if(el.tagName==='TEXTAREA') el.value=''; } }
+function sExcluir(id){ if(!confirm('Excluir registro de SPDA?')) return; var arr=spAll(), out=[]; for(var i=0;i<arr.length;i++){ if(arr[i].id!==id) out.push(arr[i]); } spSet(out); renderSpda(); }
+function renderSpda(){
+  var arr=spAll(), rows='';
+  for(var i=0;i<arr.length;i++){
+    var it=arr[i];
+    var d=it.validade?diffDays(it.validade,todayISO()):null;
+    var st=(d===null)?'<span class="pill">—</span>':(d<0?'<span class="pill bad">Vencido '+Math.abs(d)+'d</span>':(d<=60?'<span class="pill warn">≤'+d+'d</span>':'<span class="pill ok">'+d+'d</span>'));
+    var an=it.anexo?linkDownload('laudo', it.anexo, 'spda_'+(it.data||'')):'';
+    rows+='<tr><td>'+(it.projeto||'')+'</td><td>'+(it.empreendimento||'')+'</td><td>'+fmtBR(it.data)+'</td><td>'+fmtBR(it.validade)+'</td><td>'+st+'</td><td>'+(it.responsavel||'')+'</td><td>'+(an||'—')+'</td><td><button onclick="sExcluir(\''+(it.id||'')+'\')">Excluir</button></td></tr>';
+  }
+  var tb=document.getElementById('tbSpda'); if(tb) tb.innerHTML=rows;
+}
+
+// ======== Relatórios, Home e Tabelas ========
+function derive(it){ var proxInsp = it.ultInsp?addYears(it.ultInsp,1):''; var proxHidro = it.ultHidro?addYears(it.ultHidro,5):''; var dInsp = proxInsp?diffDays(proxInsp, todayISO()):null; var dHidro = proxHidro?diffDays(proxHidro, todayISO()):null; var out={}; for(var k in it){ out[k]=it[k]; } out.proxInsp=proxInsp; out.proxHidro=proxHidro; out.dInsp=dInsp; out.dHidro=dHidro; return out; }
+function statusPill(days){ if(days===null) return '<span class="pill">—</span>'; if(days<0) return '<span class="pill bad">Vencido '+Math.abs(days)+'d</span>'; if(days<=60) return '<span class="pill warn">≤'+days+'d</span>'; return '<span class="pill ok">'+days+'d</span>'; }
+
+function renderHome(){
+  var itemsRaw = itemsAll(), items=[], i; for(i=0;i<itemsRaw.length;i++){ items.push(derive(itemsRaw[i])); }
+  var venc=0,a60=0; for(i=0;i<items.length;i++){ var it=items[i]; if((it.dInsp!==null && it.dInsp<0) || (it.dHidro!==null && it.dHidro<0)) venc++; else if((it.dInsp!==null && it.dInsp<=60) || (it.dHidro!==null && it.dHidro<=60)) a60++; }
+  var ok=Math.max(0, items.length - venc - a60);
+  var t1=document.getElementById('kpiTotal'); if(t1) t1.textContent=items.length;
+  var t2=document.getElementById('kpiVenc'); if(t2) t2.textContent=venc;
+  var t3=document.getElementById('kpiA60'); if(t3) t3.textContent=a60;
+  var t4=document.getElementById('kpiOk'); if(t4) t4.textContent=ok;
+
+  var byP={}, it;
+  for(i=0;i<items.length;i++){ it=items[i]; if(it.dInsp!==null && it.dInsp>=0 && it.dInsp<=90){ var p=it.projeto||'(sem projeto)'; byP[p]=(byP[p]||0)+1; } }
+  var pWrap=document.getElementById('byProj'); if(pWrap){ pWrap.innerHTML=''; var keys=[], k; for(k in byP){ if(byP.hasOwnProperty(k)) keys.push(k); } keys.sort(function(a,b){ return byP[b]-byP[a]; }); if(keys.length===0){ pWrap.innerHTML='<div class="pill">Sem vencimentos no período.</div>'; } for(i=0;i<keys.length;i++){ var kname=keys[i], q=byP[kname], w=Math.min(100, q*10); var div=document.createElement('div'); div.className='card'; div.innerHTML='<div style="font-weight:700">'+kname+'</div><div class="bar"><span style="width:'+w+'%"></span></div><div style="text-align:right;font-weight:700">'+q+'</div>'; pWrap.appendChild(div); } }
+
+  var soon=[], rows=''; for(i=0;i<items.length;i++){ it=items[i]; if(it.dInsp!==null && it.dInsp>=0 && it.dInsp<=90) soon.push(it); }
+  soon.sort(function(a,b){ return a.proxInsp < b.proxInsp ? -1 : 1; });
+  for(i=0;i<soon.length;i++){ it=soon[i]; rows += '<tr><td>'+ (it.projeto||'') +'</td><td>'+ (it.local||'') +'</td><td>'+ (it.tipo||'') +'</td><td>'+ fmtBR(it.proxInsp) +'</td><td>'+ statusPill(it.dInsp) +'</td></tr>'; }
+  var tbd=document.getElementById('tbDash'); if(tbd) tbd.innerHTML=rows;
+}
+
+function renderTable(){
+  var qEl=document.getElementById('busca'); var q=(qEl&&qEl.value?qEl.value:'').toLowerCase();
+  var overEl=document.getElementById('chkOver'); var over=!!(overEl && overEl.checked);
+  var itemsRaw=itemsAll(), items=[], i; for(i=0;i<itemsRaw.length;i++){ items.push(derive(itemsRaw[i])); }
+  if(q){ var f=[], it; for(i=0;i<items.length;i++){ it=items[i]; var hay=[it.projeto,it.local,it.tipo,it.serie,it.capacidade]; var ok=false; for(var j=0;j<hay.length;j++){ var v=hay[j]||''; if((''+v).toLowerCase().indexOf(q)>=0){ ok=true; break; } } if(ok) f.push(it); } items=f; }
+  if(over){ var f2=[], it2; for(i=0;i<items.length;i++){ it2=items[i]; if((it2.dInsp!==null && it2.dInsp<0) || (it2.dHidro!==null && it2.dHidro<0)) f2.push(it2); } items=f2; }
+  items.sort(function(a,b){ var aa=(a.projeto||'').localeCompare(b.projeto||''); return aa!==0?aa:(a.local||'').localeCompare(b.local||''); });
+  var tb=document.getElementById('tbExt'); if(!tb) return;
+  var html='', inspBG, hidBG, it;
+  for(i=0;i<items.length;i++){
+    it=items[i]; var id=it.id||it.serie; inspBG=(it.dInsp!==null && it.dInsp<0)?' style="background:rgba(239,68,68,.08)"':''; hidBG=(it.dHidro!==null && it.dHidro<0)?' style="background:rgba(239,68,68,.08)"':'';
+    html += '<tr>' + '<td><input type="checkbox" class="sel" data-id="'+id+'"></td>' + '<td>'+ (it.projeto||'') +'</td><td>'+(it.empreendimento||'')+'</td><td>'+ (it.local||'') +'</td><td>'+ (it.tipo||'') +'</td><td>'+ (it.capacidade||'') +'</td><td>'+ (it.serie||'') +'</td>' + '<td>'+ (it.ultInsp?fmtBR(it.ultInsp):'') +'</td><td'+inspBG+'>'+ (it.proxInsp?fmtBR(it.proxInsp):'') +'</td><td>'+ statusPill(it.dInsp) +'</td>' + '<td>'+ (it.ultHidro?fmtBR(it.ultHidro):'') +'</td><td'+hidBG+'>'+ (it.proxHidro?fmtBR(it.proxHidro):'') +'</td><td>'+ statusPill(it.dHidro) +'</td>' + '<td><button onclick="editarItem(\''+id+'\')">Editar</button> <button onclick="excluirItem(\''+id+'\')">Excluir</button></td>' + '</tr>';
+  }
+  tb.innerHTML=html;
+}
+
+function carregarCombos(){
+  var items=itemsAll(), av=avAll(), hid=hidAll(), sp=spAll(), projects={}, types={}, i;
+  for(i=0;i<items.length;i++){ if(items[i].projeto) projects[items[i].projeto]=1; if(items[i].tipo) types[items[i].tipo]=1; }
+  for(i=0;i<av.length;i++){ if(av[i].projeto) projects[av[i].projeto]=1; }
+  for(i=0;i<hid.length;i++){ if(hid[i].projeto) projects[hid[i].projeto]=1; }
+  for(i=0;i<sp.length;i++){ if(sp[i].projeto) projects[sp[i].projeto]=1; }
+  var mapProj=projAll(); for(var p in mapProj){ if(mapProj.hasOwnProperty(p) && p) projects[p]=1; }
+  function fill(el, set, includeAll){ if(!el) return; var keep=el.value; var s=includeAll?'<option value="">(selecione)</option>':''; for(var k in set){ if(set.hasOwnProperty(k)) s+='<option>'+k+'</option>'; } el.innerHTML=s; el.value=keep||''; }
+  fill(document.getElementById('fProjSel'), projects, true);
+  fill(document.getElementById('avProjSel'), projects, true);
+  fill(document.getElementById('hProjSel'), projects, true);
+  fill(document.getElementById('sProjSel'), projects, true);
+  fill(document.getElementById('rProjSel'), projects, false);
+  fill(document.getElementById('rProjAvcb'), projects, false);
+  fill(document.getElementById('rProjHid'), projects, false);
+  fill(document.getElementById('rProjSpda'), projects, false);
+  fill(document.getElementById('rTipoSel'), types, false);
+
+  updateEmpSelForProject('fProjSel','fEmpSel');
+  updateEmpSelForProject('avProjSel','avEmpSel');
+  updateEmpSelForProject('hProjSel','hEmpSel');
+  updateEmpSelForProject('sProjSel','sEmpSel');
+}
+function updateEmpSelForProject(projSelId, empSelId){
+  var projEl = document.getElementById(projSelId);
+  var proj = projEl ? (projEl.value||'').trim() : '';
+  var el = document.getElementById(empSelId); if(!el) return;
+  var set={};
+  if(proj){
+    var emps=empsAll(); for(var k in emps){ if(emps.hasOwnProperty(k) && emps[k] && emps[k].projeto===proj){ set[k]=1; } }
+  }
+  var keep=el.value; var s='<option value="">(selecione)</option>'; for(var k2 in set){ if(set.hasOwnProperty(k2)) s+='<option>'+k2+'</option>'; } el.innerHTML=s; if(set[keep]) el.value=keep; else el.value='';
+}
+
+// ======== Relatórios ========
+function headerRel(){
+  var cfg=lsGet('cfg', {});
+  var hdr='<div style="display:flex;gap:10px;align-items:center;border-bottom:1px solid #e5e7eb;padding-bottom:8px;margin-bottom:8px">';
+  if(cfg.logoDataURL){ hdr+='<img style="width:3.2cm;height:3.2cm;object-fit:contain;border:1px solid #e5e7eb" src="'+cfg.logoDataURL+'">'; }
+  hdr+='<div><div style="font-weight:700">'+(cfg.titulo||'Controle de Extintores')+'</div><div>'+(cfg.empresa||'')+'</div><div style="color:#374151">Emitido em '+(new Date().toLocaleString())+'</div></div></div>';
+  return hdr;
+}
+function statusKey(d){ if(d===null) return 'sem'; if(d<0) return 'venc'; if(d<=60) return 'a60'; return 'ok'; }
+function gerarRelExt(){ var proj=(document.getElementById('rProjSel')||{}).value||''; var tipo=(document.getElementById('rTipoSel')||{}).value||''; var st=(document.getElementById('rStatus')||{}).value||''; var dias=parseInt(((document.getElementById('rDias')||{}).value||'0'),10)||null; var ini=(document.getElementById('rIni')||{}).value||''; var fim=(document.getElementById('rFim')||{}).value||''; var itemsRaw=itemsAll(), items=[], i; for(i=0;i<itemsRaw.length;i++){ items.push(derive(itemsRaw[i])); } var linhas=[], it; for(i=0;i<items.length;i++){ it=items[i]; if(proj && it.projeto!==proj) continue; if(tipo && it.tipo!==tipo) continue; var s=statusKey(it.dInsp); var venc=it.proxInsp||''; var d=venc?diffDays(venc,todayISO()):null; var pass=( !st || st===s ) && (!dias || (d!==null && d>=0 && d<=dias)) && (!ini || (venc && venc>=ini)) && (!fim || (venc && venc<=fim)); if(pass) linhas.push({it:it, d:d, s:s}); } linhas.sort(function(a,b){ var aa=(a.it.projeto||'').localeCompare(b.it.projeto||''); return aa!==0?aa:(a.it.local||'').localeCompare(b.it.local||''); }); var rows=''; for(i=0;i<linhas.length;i++){ it=linhas[i].it; rows+='<tr><td>'+(it.projeto||'')+'</td><td>'+(it.empreendimento||'')+'</td><td>'+(it.local||'')+'</td><td>'+(it.tipo||'')+'</td><td>'+(it.capacidade||'')+'</td><td>'+(it.serie||'')+'</td><td>'+fmtBR(it.ultInsp)+'</td><td>'+fmtBR(it.proxInsp)+'</td><td>'+(linhas[i].s==='sem'?'—':linhas[i].d+'d')+'</td></tr>'; } var table='<table class="table"><thead><tr><th>Projeto</th><th>Empreend.</th><th>Local</th><th>Tipo</th><th>Cap.</th><th>Série</th><th>Últ. Insp.</th><th>Vencimento</th><th>Δ</th></tr></thead><tbody>'+rows+'</tbody></table>'; var r=document.getElementById('report'); if(r) r.innerHTML = headerRel() + table; }
+function gerarRelAvcb(){ var proj=(document.getElementById('rProjAvcb')||{}).value||''; var dias=parseInt(((document.getElementById('rDiasAv')||{}).value||'0'),10)||null; var arr=avAll(), linhas=[], i, it; for(i=0;i<arr.length;i++){ it=arr[i]; if(proj && it.projeto!==proj) continue; var d=it.validade?diffDays(it.validade,todayISO()):null; if(dias && !(d!==null && d>=0 && d<=dias)) continue; linhas.push({it:it, d:d}); } linhas.sort(function(a,b){ return (a.it.projeto||'').localeCompare(b.it.projeto||''); }); var rows=''; for(i=0;i<linhas.length;i++){ it=linhas[i].it; rows+='<tr><td>'+(it.projeto||'')+'</td><td>'+(it.empreendimento||'')+'</td><td>'+(it.numero||'')+'</td><td>'+fmtBR(it.emissao)+'</td><td>'+fmtBR(it.validade)+'</td><td>'+(linhas[i].d===null?'—':linhas[i].d+'d')+'</td><td>'+(it.responsavel||'')+'</td></tr>'; } var table='<table class="table"><thead><tr><th>Projeto</th><th>Empreend.</th><th>Nº</th><th>Emissão</th><th>Validade</th><th>Δ</th><th>Responsável</th></tr></thead><tbody>'+rows+'</tbody></table>'; var r=document.getElementById('report'); if(r) r.innerHTML = headerRel() + table; }
+function gerarRelHid(){ var proj=(document.getElementById('rProjHid')||{}).value||''; var res=(document.getElementById('rResHid')||{}).value||''; var ini=(document.getElementById('rHidIni')||{}).value||''; var fim=(document.getElementById('rHidFim')||{}).value||''; var arr=hidAll(), linhas=[], i, it; for(i=0;i<arr.length;i++){ it=arr[i]; if(proj && it.projeto!==proj) continue; if(res && it.status!==res) continue; if(ini && (!it.data || it.data<ini)) continue; if(fim && (!it.data || it.data>fim)) continue; var prox=it.data?addYears(it.data,1):''; var d=prox?diffDays(prox,todayISO()):null; linhas.push({it:it, d:d, prox:prox}); } linhas.sort(function(a,b){ return (a.it.projeto||'').localeCompare(b.it.projeto||''); }); var rows=''; for(i=0;i<linhas.length;i++){ it=linhas[i].it; rows+='<tr><td>'+(it.projeto||'')+'</td><td>'+(it.empreendimento||'')+'</td><td>'+fmtBR(it.data)+'</td><td>'+fmtBR(linhas[i].prox)+'</td><td>'+(linhas[i].d===null?'—':linhas[i].d+'d')+'</td><td>'+ (it.pressao==null?'':it.pressao) +'</td><td>'+(it.vazao==null?'':it.vazao)+'</td><td>'+ (it.status||'') +'</td><td>'+(it.responsavel||'')+'</td></tr>'; } var table='<table class="table"><thead><tr><th>Projeto</th><th>Empreend.</th><th>Data</th><th>Próx. Teste</th><th>Δ</th><th>Pressão</th><th>Vazão</th><th>Resultado</th><th>Resp.</th></tr></thead><tbody>'+rows+'</tbody></table>'; var r=document.getElementById('report'); if(r) r.innerHTML = headerRel() + table; }
+function gerarRelSpda(){ var proj=(document.getElementById('rProjSpda')||{}).value||''; var dias=parseInt(((document.getElementById('rDiasSpda')||{}).value||'0'),10)||null; var arr=spAll(), linhas=[], i, it; for(i=0;i<arr.length;i++){ it=arr[i]; if(proj && it.projeto!==proj) continue; var d=it.validade?diffDays(it.validade,todayISO()):null; if(dias && !(d!==null && d>=0 && d<=dias)) continue; linhas.push({it:it, d:d}); } linhas.sort(function(a,b){ return (a.it.projeto||'').localeCompare(b.it.projeto||''); }); var rows=''; for(i=0;i<linhas.length;i++){ it=linhas[i].it; rows+='<tr><td>'+(it.projeto||'')+'</td><td>'+(it.empreendimento||'')+'</td><td>'+fmtBR(it.data)+'</td><td>'+fmtBR(it.validade)+'</td><td>'+(linhas[i].d===null?'—':linhas[i].d+'d')+'</td><td>'+(it.responsavel||'')+'</td></tr>'; } var table='<table class="table"><thead><tr><th>Projeto</th><th>Empreend.</th><th>Inspeção</th><th>Validade</th><th>Δ</th><th>Resp.</th></tr></thead><tbody>'+rows+'</tbody></table>'; var r=document.getElementById('report'); if(r) r.innerHTML = headerRel() + table; }
+function imprimirRel(){ window.print(); }
+function selTipoRel(t){ var ids=['filtrosExt','filtrosAvcb','filtrosHid','filtrosSpda']; for(var i=0;i<ids.length;i++){ var el=document.getElementById(ids[i]); if(el) el.classList.add('hidden'); } var map={'ext':'filtrosExt','avcb':'filtrosAvcb','hid':'filtrosHid','spda':'filtrosSpda'}; var tgt=map[t]; var el2=document.getElementById(tgt); if(el2) el2.classList.remove('hidden'); }
+
+// ======== Backups ========
+function snapshot(){ return { version: '7.6.3', exported_at: new Date().toISOString(), cfg: lsGet('cfg', null), items: lsGet('items', []), avcb: lsGet('avcb', []), hid: lsGet('hid', []), spda: lsGet('spda', []), projs: lsGet('projs', {}), emps: lsGet('emps', {}) }; }
+function downloadDB(){ var data = snapshot(); var blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'}); var a = document.createElement('a'); var ts = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-'); a.href = URL.createObjectURL(blob); a.download = 'backup_full_'+ts+'.json'; a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1500); }
+function importarSelecionados(){ var inp = document.getElementById('inFiles'); if(!inp || !inp.files || !inp.files.length){ alert('Selecione ao menos um arquivo .json'); return; } var total=inp.files.length, done=0; function finish(){ log('Importação concluída.'); carregarCombos(); renderTable(); renderHome(); renderAvcb(); renderHid(); renderSpda(); } Array.prototype.forEach.call(inp.files, function(f){ var fr = new FileReader(); fr.onload = function(){ try{ var data = JSON.parse(fr.result); if(data.items){ var cur = lsGet('items', []); for(var i=0;i<data.items.length;i++){ var it=data.items[i]; if(!it.id) it.id = genId(); cur.push(it); } lsSet('items', cur); log('Itens importados: '+data.items.length); } if(data.avcb){ var cav = lsGet('avcb', []); for(var j=0;j<data.avcb.length;j++){ var av=data.avcb[j]; if(!av.id) av.id = genId(); cav.push(av); } lsSet('avcb', cav); log('AVCB importados: '+data.avcb.length); } if(data.hid){ var ch = lsGet('hid', []); for(var h=0;h<data.hid.length;h++){ var hi=data.hid[h]; if(!hi.id) hi.id=genId(); ch.push(hi);} lsSet('hid', ch); log('Hidrantes importados: '+data.hid.length); } if(data.spda){ var cs = lsGet('spda', []); for(var s=0;s<data.spda.length;s++){ var sp=data.spda[s]; if(!sp.id) sp.id=genId(); cs.push(sp);} lsSet('spda', cs); log('SPDA importados: '+data.spda.length); } if(data.projs){ var cp = projAll(); for(var k in data.projs){ if(!cp[k]) cp[k]=data.projs[k]; } projSet(cp); log('Projetos mesclados.'); } if(data.emps){ var ce = empsAll(); for(var e in data.emps){ if(!ce[e]) ce[e]=data.emps[e]; } empsSet(ce); log('Empreendimentos mesclados.'); } if(data.cfg){ log('Configurações detectadas (não sobrescrevi automaticamente).'); } }catch(err){ log('Falha ao ler '+f.name+': '+err); } done++; if(done>=total) finish(); }; fr.readAsText(f); }); }
+
+// ======== Navegação robusta (hash routing) ========
+function switchArea(targetId){
+  var nav=document.getElementById('topNav');
+  if(nav){
+    var btns=nav.querySelectorAll('button[data-target]');
+    for(var i=0;i<btns.length;i++){
+      var t=btns[i].getAttribute('data-target');
+      if(t===targetId) btns[i].classList.add('active'); else btns[i].classList.remove('active');
+    }
+  }
+  var secs=['homeArea','extArea','avcbArea','hidArea','spdaArea','reportsArea','backupArea','configArea','helpArea'];
+  for(var j=0;j<secs.length;j++){
+    var s=document.getElementById(secs[j]); if(!s) continue;
+    if(secs[j]===targetId){ s.classList.remove('hidden'); } else { s.classList.add('hidden'); }
+  }
+  window.scrollTo(0,0);
+}
+function routeFromHash(){
+  var hash = (location.hash||'').replace('#','');
+  if(!hash){ hash='homeArea'; }
+  var el=document.getElementById(hash);
+  if(!el){ hash='homeArea'; }
+  switchArea(hash);
+}
+function setupNav(){
+  var nav=document.getElementById('topNav');
+  if(!nav) return;
+  nav.addEventListener('click', function(e){
+    var el=e.target;
+    while(el && el!==nav && el.tagName!=='BUTTON'){ el=el.parentNode; }
+    if(el && el.tagName==='BUTTON' && el.getAttribute('data-target')){
+      e.preventDefault();
+      var t=el.getAttribute('data-target');
+      // atualiza hash para permitir voltar/avançar do navegador
+      location.hash = '#'+t;
+    }
+  });
+  window.addEventListener('hashchange', routeFromHash);
+}
+
+// ======== Boot ========
+document.addEventListener('DOMContentLoaded', function(){
+  try{
+    setupNav();  // 1) garante navegação primeiro
+    routeFromHash();
+  }catch(e){}
+  try{
+    var td=document.getElementById('today'); if(td){ td.textContent = (new Date()).toLocaleDateString('pt-BR'); }
+    migrateIds();
+    loadCfg();
+    renderHome();
+    renderTable();
+    renderAvcb();
+    renderHid();
+    renderSpda();
+    carregarCombos();
+    selTipoRel('ext');
+    // listeners de combos
+    var pairs={'fProjSel':'fEmpSel','avProjSel':'avEmpSel','hProjSel':'hEmpSel','sProjSel':'sEmpSel'};
+    for(var k in pairs){ if(pairs.hasOwnProperty(k)){ (function(pj,em){ var el=document.getElementById(pj); if(el){ el.addEventListener('change', function(){ updateEmpSelForProject(pj, em); }); } })(k, pairs[k]); } }
+  }catch(err){
+    var eb=document.getElementById('errbar'); if(eb){ eb.style.display='block'; eb.textContent='Erro de inicialização: '+err; }
+  }
+});
+</script>
+<script>
+function exportarJSON(data) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'backup_controle_extintores.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importarJSON(callback) {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'application/json';
+  input.onchange = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const json = JSON.parse(e.target.result);
+        callback(json);
+      } catch (err) {
+        alert('Erro ao importar JSON: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+</script>
+<script>
+let backupFolder = null;
+
+document.getElementById("backupFolderPicker").addEventListener("change", (event) => {
+  backupFolder = event.target.files;
+  alert("Pasta de backup configurada.");
+});
+
+let autoBackupTimer = null;
+
+document.getElementById("enableAutoBackup").addEventListener("change", (event) => {
+  const enabled = event.target.checked;
+  const interval = parseInt(document.getElementById("backupInterval").value) * 60000;
+
+  if (enabled) {
+    autoBackupTimer = setInterval(() => {
+      const data = {}; // <-- Inserir aqui os dados a serem exportados
+      exportarJSON(data);
+    }, interval);
+    alert("Backup automático ativado.");
+  } else {
+    clearInterval(autoBackupTimer);
+    alert("Backup automático desativado.");
+  }
+});
+</script>
+<footer style="text-align:center; color:#9aa4b2; font-size:0.85rem; margin-top:40px; padding:12px 0; border-top:1px solid #253246">
+  Criado por: <strong>Sérgio Bigi</strong><br/>
+  Engenheiro de Segurança do Trabalho<br/>
+  Contato: <a href="mailto:sergiobigi@gmail.com" style="color:#cbd5e1">sergiobigi@gmail.com</a>
+</footer>
+</body>
+</html>
